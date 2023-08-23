@@ -20,8 +20,8 @@ jobs:
           command: |
             sudo apt-get update
             sudo apt-get install -y -f optipng jhead imagemagick libimlib2 openssl direnv shellcheck libimlib2-dev
-            sudo apt-get install -y postgresql libpq-dev
-            echo '127.0.0.1 redis postgresql' | sudo tee -a /etc/hosts
+            sudo apt-get install -y postgresql libpq-dev mysql-client libmysqlclient-dev
+            echo '127.0.0.1 redis postgresql mysql' | sudo tee -a /etc/hosts
             sudo apt-get install -y rbenv
             eval "$(rbenv init -)"
             git clone https://github.com/rbenv/ruby-build.git ~/.rbenv/plugins/ruby-build
