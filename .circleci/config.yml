@@ -1,0 +1,78 @@
+executors:
+  linux-medium:
+    machine:
+      image: ubuntu-2004:202108-01
+
+jobs:
+  build:
+    executor: linux-medium
+    steps:
+      - checkout
+      - run:
+          name: Install Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y -f optipng jhead imagemagick libimlib2 openssl direnv shellcheck libimlib2-dev
+            echo '127.0.0.1 redis postgresql' | sudo tee -a /etc/hosts
+            rbenv rehash
+            bundle install --path vendor/bundle
+            yarn install
+            yarn cypress:install
+      - run:
+          name: Configure Environment
+          command: bundle exec ruby .gitlab/configure_environment.rb
+      - run:
+          name: Initialize Database
+          command: bundle exec rake zammad:db:init
+      - run:
+          name: Check Translation Files
+          command: |
+            for FILE in i18n/*.pot i18n/*.po; do echo "Checking $FILE"; msgfmt -o /dev/null -c "$FILE"; done
+      - run:
+          name: Generate Translation Catalog
+          command: bundle exec rails generate zammad:translation_catalog --check
+      - run:
+          name: Run Brakeman
+          command: bundle exec brakeman -o /dev/stdout -o tmp/brakeman-report.html
+      - run:
+          name: Check Zeitwerk
+          command: bundle exec rails zeitwerk:check
+      - run:
+          name: Check GraphQL API Consistency
+          command: .gitlab/check_graphql_api_consistency.sh
+      - run:
+          name: Validate TODOs
+          command: bundle exec .rubocop/validate_todos.rb
+      - run:
+          name: Run RuboCop
+          command: bundle exec rubocop --parallel
+      - run:
+          name: Lint CSS
+          command: yarn lint:css
+      - run:
+          name: Run Yarn Lint
+          command: yarn lint
+      - run:
+          name: Precompile Assets
+          command: bundle exec rake assets:precompile
+      - run:
+          name: Run Yarn Tests
+          command: yarn test
+      - run:
+          name: Run Cypress Tests
+          command: yarn test:ci:ct
+      - run:
+          name: Run RSpec
+          command: bundle exec rspec --exclude-pattern "spec/system/**/*_spec.rb" -t ~searchindex -t ~integration -t ~required_envs
+      - run:
+          name: Reset Database
+          command: bundle exec rake zammad:db:reset
+      - run:
+          name: Run Unit Tests
+          command: bundle exec rake test:units
+
+workflows:
+  version: 2
+  build-and-test:
+    jobs:
+      - build
