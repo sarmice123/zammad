@@ -3,14 +3,17 @@ version: 2.1
 executors:
   linux-medium:
     machine:
-      image: ubuntu-2004:current
-    resource_class: medium
+      image: ubuntu-2004:202108-01
 
 jobs:
   build:
     executor: linux-medium
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "Gemfile.lock" }}
+            - v1-dependencies-
       - run:
           name: Install Dependencies
           command: |
@@ -27,6 +30,11 @@ jobs:
             bundle install --path vendor/bundle
             yarn install
             yarn cypress:install
+      - save_cache:
+          paths:
+            - ./vendor/bundle
+            - ~/.yarn-cache
+          key: v1-dependencies-{{ checksum "Gemfile.lock" }}
       - run:
           name: Configure Environment
           command: bundle exec ruby .gitlab/configure_environment.rb
